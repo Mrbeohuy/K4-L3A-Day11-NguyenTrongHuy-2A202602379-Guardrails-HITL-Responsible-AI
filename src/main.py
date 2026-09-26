@@ -27,6 +27,15 @@ if str(_SRC_DIR) not in sys.path:
 from core.config import setup_api_key
 
 
+def _configure_utf8_stdio():
+    """Avoid Windows cp1252 crashes when printing Vietnamese lab text."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        encoding = (getattr(stream, "encoding", "") or "").lower()
+        if callable(reconfigure) and encoding != "utf-8":
+            reconfigure(encoding="utf-8", errors="replace")
+
+
 async def part2_guardrails():
     """Checkpoint 2: input + output guardrails."""
     print("\n" + "=" * 60)
@@ -92,7 +101,13 @@ async def part4_attacks():
     from attacks.attacks import run_attacks, save_attack_results
 
     red_default, red_default_runner = create_red_agent_default()
-    await test_agent(red_default, red_default_runner)
+    try:
+        await test_agent(red_default, red_default_runner)
+    except Exception as e:
+        print(
+            "Quick Red smoke test failed; continuing to write attack evidence. "
+            f"Detail: {type(e).__name__}: {e}"
+        )
 
     print("\n--- Attacks on Red ---")
     unsafe_results = await run_attacks(
@@ -134,6 +149,7 @@ async def part4_attacks():
 
 
 async def main(parts=None):
+    _configure_utf8_stdio()
     setup_api_key()
 
     if parts is None:
